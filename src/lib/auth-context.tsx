@@ -43,33 +43,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Check if user record exists in the users table
-      const { data } = await supabase
-        .from('users')
-        .select('username, is_admin')
-        .eq('id', supabaseUser.id)
-        .single();
+      try {
+        // Check if user record exists in the users table
+        const { data, error } = await supabase
+          .from('users')
+          .select('username, is_admin')
+          .eq('id', supabaseUser.id)
+          .single();
 
-      // Set the user state
-      setUser({
-        id: supabaseUser.id,
-        email: supabaseUser.email || '',
-        username: data?.username || supabaseUser.email || '',
-        isAdmin: data?.is_admin || false,
-      });
-      setIsAuthenticated(true);
+        // Set the user state - fallback to email if no username or errors occur
+        setUser({
+          id: supabaseUser.id,
+          email: supabaseUser.email || '',
+          username: data?.username || supabaseUser.email || '',
+          isAdmin: data?.is_admin || false,
+        });
+        setIsAuthenticated(true);
 
-      // If no user record, create one
-      if (!data) {
-        try {
-          await supabase.from('users').insert({
-            id: supabaseUser.id,
-            username: supabaseUser.email,
-            is_admin: false,
-          });
-        } catch (error) {
-          console.error('Error creating user record:', error);
-        }
+        // If we got a user record successfully, no need to try to create one
+        if (data) return;
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        // Set basic user data from auth
+        setUser({
+          id: supabaseUser.id,
+          email: supabaseUser.email || '',
+          username: supabaseUser.email || '',
+          isAdmin: false,
+        });
+        setIsAuthenticated(true);
+      }
+
+      // Try to create a user record if we couldn't find one
+      try {
+        await supabase.from('users').insert({
+          id: supabaseUser.id,
+          username: supabaseUser.email,
+          is_admin: false,
+        });
+      } catch (error) {
+        console.error('Error creating user record:', error);
+        // This is fine, we'll continue with just the auth user
       }
     };
 
@@ -131,15 +145,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Logout function
+  // Logout function - Fixed to handle frontend and auth separately
   const logout = async (): Promise<void> => {
     setIsLoading(true);
     
     try {
+      // Clear local state first
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // Sign out from Supabase auth
       await supabase.auth.signOut();
+      
+      // Force clear any storage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('supabase.auth.token');
+      }
+      
+      // Hard redirect to refresh the app state
       window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
+      // Still force a redirect even if there's an error
       window.location.href = '/';
     } finally {
       setIsLoading(false);
