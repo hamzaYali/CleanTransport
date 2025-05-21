@@ -388,36 +388,59 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
  */
 export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): Promise<Announcement | null> {
   try {
+    // Simple validation
+    if (!announcement.title || !announcement.content) {
+      console.error("Missing critical announcement fields");
+      return null;
+    }
+    
+    // Create clean data object with fallbacks
+    const announcementData = {
+      title: announcement.title,
+      content: announcement.content,
+      date: announcement.date || format(new Date(), 'yyyy-MM-dd'),
+      timestamp: announcement.timestamp || new Date().toISOString(),
+      priority: announcement.priority || 'normal',
+      author: announcement.author || 'Anonymous',
+    };
+    
+    // Direct insert with improved error handling
     const supabase = getSupabaseClient();
+    
+    // Debug auth state
+    const { data: authData } = await supabase.auth.getSession();
+    console.log('Auth session when adding announcement:', 
+      authData?.session ? 'Active session' : 'No active session');
+    
     const { data, error } = await supabase
       .from(TABLES.ANNOUNCEMENTS)
-      .insert({
-        title: announcement.title,
-        content: announcement.content,
-        date: announcement.date,
-        timestamp: announcement.timestamp,
-        priority: announcement.priority,
-        author: announcement.author,
-      })
+      .insert(announcementData)
       .select()
       .single();
     
     if (error) {
-      console.error('Error adding announcement:', error);
+      console.error('Announcement insert failed:', error.message);
+      console.error('Error details:', error);
       return null;
     }
     
+    if (!data) {
+      console.error('Announcement insert returned no data');
+      return null;
+    }
+    
+    // Return consistent formatted result
     return {
       id: data.id,
       title: data.title,
       content: data.content,
-      date: data.date,
-      timestamp: data.timestamp,
-      priority: data.priority,
-      author: data.author,
+      date: data.date || format(new Date(), 'yyyy-MM-dd'),
+      timestamp: data.timestamp || new Date().toISOString(),
+      priority: data.priority || 'normal',
+      author: data.author || 'Anonymous',
     };
   } catch (error) {
-    console.error('Error adding announcement:', error);
+    console.error('Exception in addAnnouncement:', error);
     return null;
   }
 }
@@ -427,37 +450,58 @@ export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): P
  */
 export async function updateAnnouncement(id: string, announcement: Omit<Announcement, 'id'>): Promise<Announcement | null> {
   try {
+    if (!id) {
+      console.error("Missing announcement ID for update");
+      return null;
+    }
+    
+    // Simple validation
+    if (!announcement.title || !announcement.content) {
+      console.error("Missing critical announcement fields");
+      return null;
+    }
+    
+    // Create clean data object with fallbacks
+    const announcementData = {
+      title: announcement.title,
+      content: announcement.content,
+      date: announcement.date || format(new Date(), 'yyyy-MM-dd'),
+      timestamp: announcement.timestamp || new Date().toISOString(),
+      priority: announcement.priority || 'normal',
+      author: announcement.author || 'Anonymous',
+    };
+    
+    // Direct update with improved error handling
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(TABLES.ANNOUNCEMENTS)
-      .update({
-        title: announcement.title,
-        content: announcement.content,
-        date: announcement.date,
-        timestamp: announcement.timestamp,
-        priority: announcement.priority,
-        author: announcement.author,
-      })
+      .update(announcementData)
       .eq('id', id)
       .select()
       .single();
     
     if (error) {
-      console.error('Error updating announcement:', error);
+      console.error('Announcement update failed:', error.message);
       return null;
     }
     
+    if (!data) {
+      console.error('Announcement update returned no data');
+      return null;
+    }
+    
+    // Return consistent formatted result
     return {
       id: data.id,
       title: data.title,
       content: data.content,
-      date: data.date,
-      timestamp: data.timestamp,
-      priority: data.priority,
-      author: data.author,
+      date: data.date || format(new Date(), 'yyyy-MM-dd'),
+      timestamp: data.timestamp || new Date().toISOString(),
+      priority: data.priority || 'normal',
+      author: data.author || 'Anonymous',
     };
   } catch (error) {
-    console.error('Error updating announcement:', error);
+    console.error('Exception in updateAnnouncement:', error);
     return null;
   }
 }
@@ -467,6 +511,12 @@ export async function updateAnnouncement(id: string, announcement: Omit<Announce
  */
 export async function deleteAnnouncement(id: string): Promise<boolean> {
   try {
+    if (!id) {
+      console.error("Missing announcement ID for delete");
+      return false;
+    }
+    
+    // Direct delete with improved error handling
     const supabase = getSupabaseClient();
     const { error } = await supabase
       .from(TABLES.ANNOUNCEMENTS)
@@ -474,13 +524,13 @@ export async function deleteAnnouncement(id: string): Promise<boolean> {
       .eq('id', id);
     
     if (error) {
-      console.error('Error deleting announcement:', error);
+      console.error('Announcement delete failed:', error.message);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Error deleting announcement:', error);
+    console.error('Exception in deleteAnnouncement:', error);
     return false;
   }
 } 
