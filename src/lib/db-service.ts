@@ -153,26 +153,23 @@ export async function fetchWeeklySchedule(): Promise<DaySchedule[]> {
  */
 export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Transport | null> {
   try {
-    // Ensure required fields are present
-    if (!transport.client?.name || !transport.client?.phone ||
-        !transport.pickup?.location || !transport.pickup?.time || !transport.pickup?.date ||
-        !transport.dropoff?.location || !transport.staff?.requestedBy || !transport.staff?.driver) {
-      console.error("Missing required fields:", transport);
+    // Simple validation
+    if (!transport.client?.name || !transport.pickup?.location || !transport.staff?.driver) {
+      console.error("Missing critical transport fields");
       return null;
     }
     
-    // Transform from application schema to database schema
-    const supabase = getSupabaseClient();
+    // Create a clean data object for insert
     const transportData = {
       client_name: transport.client.name,
-      client_phone: transport.client.phone,
+      client_phone: transport.client.phone || '',
       pickup_location: transport.pickup.location,
-      pickup_time: transport.pickup.time,
+      pickup_time: transport.pickup.time || '',
       pickup_date: transport.pickup.date,
-      dropoff_location: transport.dropoff.location,
-      dropoff_time: transport.dropoff.time || '',
-      dropoff_date: transport.dropoff.date,
-      staff_requester: transport.staff.requestedBy,
+      dropoff_location: transport.dropoff?.location || '',
+      dropoff_time: transport.dropoff?.time || '',
+      dropoff_date: transport.dropoff?.date || transport.pickup.date,
+      staff_requester: transport.staff.requestedBy || '',
       staff_driver: transport.staff.driver,
       staff_assistant: transport.staff.assistant || null,
       client_count: transport.clientCount || 1,
@@ -182,8 +179,8 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
       car_seats: transport.carSeats || 0,
     };
     
-    console.log('Adding transport with data:', transportData);
-    
+    // Direct insert with simplified error handling
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(TABLES.TRANSPORTS)
       .insert(transportData)
@@ -191,45 +188,45 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
       .single();
     
     if (error) {
-      console.error('Error adding transport:', error.message);
-      console.error('Error details:', error.details);
-      console.error('Error hint:', error.hint);
-      console.error('Error code:', error.code);
+      console.error('Transport insert failed:', error.message);
       return null;
     }
     
-    console.log('Transport added successfully:', data);
+    if (!data) {
+      console.error('Transport insert returned no data');
+      return null;
+    }
     
-    // Transform back to application schema
+    // Return the created transport with consistent formatting
     return {
       id: data.id,
       client: {
         name: data.client_name,
-        phone: data.client_phone,
+        phone: data.client_phone || '',
       },
       pickup: {
         location: data.pickup_location,
-        time: data.pickup_time,
+        time: data.pickup_time || '',
         date: data.pickup_date,
       },
       dropoff: {
-        location: data.dropoff_location,
-        time: data.dropoff_time,
-        date: data.dropoff_date,
+        location: data.dropoff_location || '',
+        time: data.dropoff_time || '',
+        date: data.dropoff_date || data.pickup_date,
       },
       staff: {
-        requestedBy: data.staff_requester,
+        requestedBy: data.staff_requester || '',
         driver: data.staff_driver,
         assistant: data.staff_assistant || undefined,
       },
-      clientCount: data.client_count,
-      status: data.status,
+      clientCount: data.client_count || 1,
+      status: data.status || 'scheduled',
       notes: data.notes || undefined,
       vehicle: data.vehicle || undefined,
       carSeats: data.car_seats || 0,
     };
   } catch (error) {
-    console.error('Error adding transport:', error);
+    console.error('Exception in addTransport:', error);
     return null;
   }
 }
@@ -239,49 +236,28 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
  */
 export async function updateTransport(id: string, transport: Omit<Transport, 'id'>): Promise<Transport | null> {
   try {
-    // Ensure required fields are present
-    if (!transport.client?.name || !transport.client?.phone ||
-        !transport.pickup?.location || !transport.pickup?.time || !transport.pickup?.date ||
-        !transport.dropoff?.location || !transport.staff?.requestedBy || !transport.staff?.driver) {
-      console.error("Missing required fields for update:", transport);
+    if (!id) {
+      console.error("Missing transport ID for update");
       return null;
     }
     
-    // First, verify the transport exists
-    try {
-      const supabase = getSupabaseClient();
-      const { data: checkData, error: checkError } = await supabase
-        .from(TABLES.TRANSPORTS)
-        .select('id')
-        .eq('id', id)
-        .single();
-      
-      if (checkError) {
-        console.error('Error checking transport existence:', checkError);
-        return null;
-      }
-      
-      if (!checkData) {
-        console.error('Transport with ID does not exist:', id);
-        return null;
-      }
-    } catch (selectionError) {
-      console.error('Exception during transport existence check:', selectionError);
+    // Simple validation
+    if (!transport.client?.name || !transport.pickup?.location || !transport.staff?.driver) {
+      console.error("Missing critical transport fields");
       return null;
     }
     
-    // Transform from application schema to database schema
-    const supabase = getSupabaseClient();
+    // Create a clean data object for update
     const transportData = {
       client_name: transport.client.name,
-      client_phone: transport.client.phone,
+      client_phone: transport.client.phone || '',
       pickup_location: transport.pickup.location,
-      pickup_time: transport.pickup.time,
+      pickup_time: transport.pickup.time || '',
       pickup_date: transport.pickup.date,
-      dropoff_location: transport.dropoff.location,
-      dropoff_time: transport.dropoff.time || '',
-      dropoff_date: transport.dropoff.date,
-      staff_requester: transport.staff.requestedBy,
+      dropoff_location: transport.dropoff?.location || '',
+      dropoff_time: transport.dropoff?.time || '',
+      dropoff_date: transport.dropoff?.date || transport.pickup.date,
+      staff_requester: transport.staff.requestedBy || '',
       staff_driver: transport.staff.driver,
       staff_assistant: transport.staff.assistant || null,
       client_count: transport.clientCount || 1,
@@ -291,54 +267,55 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
       car_seats: transport.carSeats || 0,
     };
     
-    // Perform the update operation
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.TRANSPORTS)
-        .update(transportData)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Error updating transport:', error);
-        return null;
-      }
-      
-      // Transform back to application schema
-      return {
-        id: data.id,
-        client: {
-          name: data.client_name,
-          phone: data.client_phone,
-        },
-        pickup: {
-          location: data.pickup_location,
-          time: data.pickup_time,
-          date: data.pickup_date,
-        },
-        dropoff: {
-          location: data.dropoff_location,
-          time: data.dropoff_time,
-          date: data.dropoff_date,
-        },
-        staff: {
-          requestedBy: data.staff_requester,
-          driver: data.staff_driver,
-          assistant: data.staff_assistant || undefined,
-        },
-        clientCount: data.client_count,
-        status: data.status,
-        notes: data.notes || undefined,
-        vehicle: data.vehicle || undefined,
-        carSeats: data.car_seats || 0,
-      };
-    } catch (updateError) {
-      console.error('Exception during update operation:', updateError);
+    // Direct update with simplified error handling
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from(TABLES.TRANSPORTS)
+      .update(transportData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Transport update failed:', error.message);
       return null;
     }
+    
+    if (!data) {
+      console.error('Transport update returned no data');
+      return null;
+    }
+    
+    // Return the updated transport with consistent formatting
+    return {
+      id: data.id,
+      client: {
+        name: data.client_name,
+        phone: data.client_phone || '',
+      },
+      pickup: {
+        location: data.pickup_location,
+        time: data.pickup_time || '',
+        date: data.pickup_date,
+      },
+      dropoff: {
+        location: data.dropoff_location || '',
+        time: data.dropoff_time || '',
+        date: data.dropoff_date || data.pickup_date,
+      },
+      staff: {
+        requestedBy: data.staff_requester || '',
+        driver: data.staff_driver,
+        assistant: data.staff_assistant || undefined,
+      },
+      clientCount: data.client_count || 1,
+      status: data.status || 'scheduled',
+      notes: data.notes || undefined,
+      vehicle: data.vehicle || undefined,
+      carSeats: data.car_seats || 0,
+    };
   } catch (error) {
-    console.error('Error updating transport:', error);
+    console.error('Exception in updateTransport:', error);
     return null;
   }
 }
@@ -349,53 +326,25 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
 export async function deleteTransport(id: string): Promise<boolean> {
   try {
     if (!id) {
-      console.error("Cannot delete transport: Missing ID");
+      console.error("Missing transport ID for delete");
       return false;
     }
     
-    // First, verify the transport exists
-    try {
-      const supabase = getSupabaseClient();
-      const { data: checkData, error: checkError } = await supabase
-        .from(TABLES.TRANSPORTS)
-        .select('id')
-        .eq('id', id)
-        .single();
-      
-      if (checkError) {
-        console.error('Error checking transport existence:', checkError);
-        return false;
-      }
-      
-      if (!checkData) {
-        console.error('Transport with ID does not exist:', id);
-        return false;
-      }
-    } catch (selectionError) {
-      console.error('Exception during transport existence check:', selectionError);
-      return false;
-    }
+    // Direct delete with simplified error handling
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from(TABLES.TRANSPORTS)
+      .delete()
+      .eq('id', id);
     
-    // Now perform the delete operation
-    try {
-      const supabase = getSupabaseClient();
-      const { error } = await supabase
-        .from(TABLES.TRANSPORTS)
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error deleting transport:', error);
-        return false;
-      }
-    } catch (deleteError) {
-      console.error('Exception during delete operation:', deleteError);
+    if (error) {
+      console.error('Transport delete failed:', error.message);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Error deleting transport:', error);
+    console.error('Exception in deleteTransport:', error);
     return false;
   }
 }
