@@ -1,196 +1,169 @@
 'use client';
 
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { TABLES } from './supabase';
-import { Session, AuthChangeEvent } from '@supabase/supabase-js';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
+// Define our types
 type User = {
   id: string;
+  email: string;
   username: string;
   isAdmin: boolean;
 } | null;
 
 type AuthContextType = {
   user: User;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 };
 
+// Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+// Create a direct Supabase client - no middlemen
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClient();
-  
-  // Check for existing session on mount
+
+  // Effect to check auth state on load and setup listeners
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        // Get current session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-          setIsLoading(false);
-          return;
-        }
-        
-        if (session) {
-          // Get user details from the users table
-          const { data: userData, error: userError } = await supabase
-            .from(TABLES.USERS)
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (userError) {
-            console.error('Error getting user data:', userError);
-            setIsLoading(false);
-            return;
-          }
-          
-          // Set user state
-          setUser({
-            id: session.user.id,
-            username: userData.username || session.user.email || '',
-            isAdmin: userData.is_admin || false,
+    // Function to set the user from the Supabase user
+    const setUserState = async (supabaseUser: any) => {
+      if (!supabaseUser) {
+        setUser(null);
+        setIsAuthenticated(false);
+        return;
+      }
+
+      // Check if user record exists in the users table
+      const { data } = await supabase
+        .from('users')
+        .select('username, is_admin')
+        .eq('id', supabaseUser.id)
+        .single();
+
+      // Set the user state
+      setUser({
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
+        username: data?.username || supabaseUser.email || '',
+        isAdmin: data?.is_admin || false,
+      });
+      setIsAuthenticated(true);
+
+      // If no user record, create one
+      if (!data) {
+        try {
+          await supabase.from('users').insert({
+            id: supabaseUser.id,
+            username: supabaseUser.email,
+            is_admin: false,
           });
-          setIsAuthenticated(true);
+        } catch (error) {
+          console.error('Error creating user record:', error);
+        }
+      }
+    };
+
+    // Check current session
+    const checkSession = async () => {
+      setIsLoading(true);
+      
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session;
+        
+        if (session?.user) {
+          await setUserState(session.user);
         }
       } catch (error) {
-        console.error('Error in session check:', error);
+        console.error('Session check error:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        if (event === 'SIGNED_IN' && session) {
-          // Get user details when signed in
-          const { data: userData, error: userError } = await supabase
-            .from(TABLES.USERS)
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (!userError && userData) {
-            setUser({
-              id: session.user.id,
-              username: userData.username || session.user.email || '',
-              isAdmin: userData.is_admin || false,
-            });
-            setIsAuthenticated(true);
-          }
+
+    // Set up auth change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await setUserState(session.user);
         } else if (event === 'SIGNED_OUT') {
-          // Clear user state on sign out
           setUser(null);
           setIsAuthenticated(false);
         }
       }
     );
-    
-    // Check session on component mount
+
+    // Check session on mount
     checkSession();
-    
-    // Cleanup subscription on unmount
+
+    // Cleanup
     return () => {
-      subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
-  }, [supabase]);
-  
+  }, []);
+
+  // Login function
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Clear any existing login attempts that might be pending
     setIsLoading(true);
     
     try {
-      // Simple validation
-      if (!email || !password) {
-        return false;
-      }
-      
-      // Create a promise that will resolve after a timeout
-      const timeoutPromise = new Promise<{data: null, error: Error}>((resolve) => {
-        setTimeout(() => {
-          resolve({
-            data: null,
-            error: new Error('Login request timed out')
-          });
-        }, 8000); // 8 second timeout
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
       
-      // Race the login request with the timeout
-      const { data, error } = await Promise.race([
-        supabase.auth.signInWithPassword({ email, password }),
-        timeoutPromise
-      ]);
-      
-      if (error) {
-        console.error('Error signing in:', error);
-        return false;
-      }
-      
-      // Add a small delay to allow auth state listener to process
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Check if we have a session after the login
-      const { data: { session } } = await supabase.auth.getSession();
-      return !!session;
+      return !error;
     } catch (error) {
-      console.error('Error in login:', error);
+      console.error('Login error:', error);
       return false;
     } finally {
       setIsLoading(false);
     }
   };
-  
-  const logout = async () => {
+
+  // Logout function
+  const logout = async (): Promise<void> => {
+    setIsLoading(true);
+    
     try {
-      setIsLoading(true);
-      
-      // Clear local state immediately to ensure UI reflects logout
-      setUser(null);
-      setIsAuthenticated(false);
-      
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut({
-        scope: 'global' // This ensures all devices are logged out
-      });
-      
-      if (error) {
-        console.error('Error signing out:', error);
-      }
-      
-      // Force a hard refresh to clear any cached state
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 100);
+      await supabase.auth.signOut();
+      window.location.href = '/';
     } catch (error) {
-      console.error('Error in logout:', error);
-      // Still redirect even if there's an error
+      console.error('Logout error:', error);
       window.location.href = '/';
     } finally {
       setIsLoading(false);
     }
   };
-  
-  return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated, isLoading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+
+  const value = {
+    user,
+    isAuthenticated,
+    isLoading,
+    login,
+    logout,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Hook to use auth
 export function useAuth() {
   const context = useContext(AuthContext);
+  
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+  
   return context;
 } 

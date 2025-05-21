@@ -11,8 +11,8 @@ export const metadata: Metadata = {
   title: "Transport Dashboard",
   description: "Modern transportation management dashboard",
   icons: {
-    icon: "/Cira Icon.png",
-    apple: "/Cira Icon.png",
+    icon: '/Cira Icon.png',
+    apple: '/Cira Icon.png',
   },
 };
 
@@ -25,8 +25,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="icon" href="/Cira Icon.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/Cira Icon.png" />
+        <link rel="icon" href="/Cira Icon.png" sizes="any" />
       </head>
       <body className={cn(inter.className, "min-h-screen bg-background")}>
         <AuthProvider>

@@ -3,8 +3,10 @@ import { createClient } from '@/utils/supabase/client';
 import { TABLES } from './supabase';
 import { Transport, Announcement, DaySchedule } from './data';
 
-// Create Supabase client
-const supabase = createClient();
+// Create Supabase client - recreate on each call to prevent stale client issues
+function getSupabaseClient() {
+  return createClient();
+}
 
 // ===== Transport Operations =====
 
@@ -13,6 +15,7 @@ const supabase = createClient();
  */
 export async function fetchTransportsByDate(date: string): Promise<Transport[]> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(TABLES.TRANSPORTS)
       .select('*')
@@ -73,6 +76,7 @@ export async function fetchWeeklySchedule(): Promise<DaySchedule[]> {
     });
     
     // Fetch all transports for the week in a single query
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(TABLES.TRANSPORTS)
       .select('*')
@@ -158,6 +162,7 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
     }
     
     // Transform from application schema to database schema
+    const supabase = getSupabaseClient();
     const transportData = {
       client_name: transport.client.name,
       client_phone: transport.client.phone,
@@ -237,6 +242,7 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
     
     // First, verify the transport exists
     try {
+      const supabase = getSupabaseClient();
       const { data: checkData, error: checkError } = await supabase
         .from(TABLES.TRANSPORTS)
         .select('id')
@@ -258,6 +264,7 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
     }
     
     // Transform from application schema to database schema
+    const supabase = getSupabaseClient();
     const transportData = {
       client_name: transport.client.name,
       client_phone: transport.client.phone,
@@ -341,6 +348,7 @@ export async function deleteTransport(id: string): Promise<boolean> {
     
     // First, verify the transport exists
     try {
+      const supabase = getSupabaseClient();
       const { data: checkData, error: checkError } = await supabase
         .from(TABLES.TRANSPORTS)
         .select('id')
@@ -363,6 +371,7 @@ export async function deleteTransport(id: string): Promise<boolean> {
     
     // Now perform the delete operation
     try {
+      const supabase = getSupabaseClient();
       const { error } = await supabase
         .from(TABLES.TRANSPORTS)
         .delete()
@@ -391,6 +400,7 @@ export async function deleteTransport(id: string): Promise<boolean> {
  */
 export async function fetchAnnouncements(): Promise<Announcement[]> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(TABLES.ANNOUNCEMENTS)
       .select('*')
@@ -422,6 +432,7 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
  */
 export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): Promise<Announcement | null> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(TABLES.ANNOUNCEMENTS)
       .insert({
@@ -460,6 +471,7 @@ export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): P
  */
 export async function updateAnnouncement(id: string, announcement: Omit<Announcement, 'id'>): Promise<Announcement | null> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(TABLES.ANNOUNCEMENTS)
       .update({
@@ -499,6 +511,7 @@ export async function updateAnnouncement(id: string, announcement: Omit<Announce
  */
 export async function deleteAnnouncement(id: string): Promise<boolean> {
   try {
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from(TABLES.ANNOUNCEMENTS)
       .delete()
