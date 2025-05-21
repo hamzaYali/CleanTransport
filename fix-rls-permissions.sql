@@ -3,6 +3,7 @@ DROP POLICY IF EXISTS "Allow all operations for authenticated users" ON users;
 DROP POLICY IF EXISTS "Allow access to own user data" ON users;
 DROP POLICY IF EXISTS "Allow anyone to read users" ON users;
 DROP POLICY IF EXISTS "Allow insert from authenticated users" ON users;
+DROP POLICY IF EXISTS "Allow user to update own record" ON users;
 
 -- Create new policies for the users table
 -- Allow anyone (auth or anon) to read from users table
@@ -23,6 +24,9 @@ ON users FOR UPDATE
 TO authenticated
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
+
+-- Make sure enable_row_level_security is on for users
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies for transports
 DROP POLICY IF EXISTS "Allow all operations for authenticated users" ON transports;
