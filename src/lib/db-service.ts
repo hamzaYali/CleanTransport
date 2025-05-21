@@ -182,6 +182,8 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
       car_seats: transport.carSeats || 0,
     };
     
+    console.log('Adding transport with data:', transportData);
+    
     const { data, error } = await supabase
       .from(TABLES.TRANSPORTS)
       .insert(transportData)
@@ -189,9 +191,14 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
       .single();
     
     if (error) {
-      console.error('Error adding transport:', error);
+      console.error('Error adding transport:', error.message);
+      console.error('Error details:', error.details);
+      console.error('Error hint:', error.hint);
+      console.error('Error code:', error.code);
       return null;
     }
+    
+    console.log('Transport added successfully:', data);
     
     // Transform back to application schema
     return {

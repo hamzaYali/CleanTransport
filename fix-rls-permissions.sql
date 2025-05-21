@@ -27,6 +27,9 @@ WITH CHECK (auth.uid() = id);
 -- Drop existing policies for transports
 DROP POLICY IF EXISTS "Allow all operations for authenticated users" ON transports;
 DROP POLICY IF EXISTS "Allow anyone to read transports" ON transports;
+DROP POLICY IF EXISTS "Allow authenticated users to insert transports" ON transports;
+DROP POLICY IF EXISTS "Allow authenticated users to update transports" ON transports;
+DROP POLICY IF EXISTS "Allow authenticated users to delete transports" ON transports;
 
 -- Create policies for transports
 -- Allow anyone to read transports
@@ -35,7 +38,7 @@ ON transports FOR SELECT
 TO anon, authenticated
 USING (true);
 
--- Allow authenticated users to modify transports - create separate policies for each operation
+-- Allow authenticated users to insert transports - with a simpler check
 CREATE POLICY "Allow authenticated users to insert transports" 
 ON transports FOR INSERT
 TO authenticated
@@ -51,10 +54,16 @@ ON transports FOR DELETE
 TO authenticated
 USING (true);
 
+-- Make sure enable_row_level_security is on for transports
+ALTER TABLE transports ENABLE ROW LEVEL SECURITY;
+
 -- Drop existing policies for announcements
 DROP POLICY IF EXISTS "Allow all operations for authenticated users" ON announcements;
 DROP POLICY IF EXISTS "Allow all users to read announcements" ON announcements;
 DROP POLICY IF EXISTS "Allow authenticated users to create/update/delete announcements" ON announcements;
+DROP POLICY IF EXISTS "Allow authenticated users to insert announcements" ON announcements;
+DROP POLICY IF EXISTS "Allow authenticated users to update announcements" ON announcements;
+DROP POLICY IF EXISTS "Allow authenticated users to delete announcements" ON announcements;
 
 -- Create policies for announcements
 -- Allow anyone to read announcements 
@@ -77,4 +86,7 @@ USING (true);
 CREATE POLICY "Allow authenticated users to delete announcements"
 ON announcements FOR DELETE
 TO authenticated
-USING (true); 
+USING (true);
+
+-- Make sure enable_row_level_security is on for announcements
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY; 
