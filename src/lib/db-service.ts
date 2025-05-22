@@ -403,7 +403,7 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
       date: a.date,
       timestamp: a.timestamp,
       priority: a.priority as 'high' | 'medium' | 'low',
-      author: a.profiles?.name || 'Anonymous',
+      author: a.profiles?.[0]?.name || 'Anonymous',
     }));
   } catch (error) {
     console.error('Exception in fetchAnnouncements:', error);
@@ -467,7 +467,7 @@ export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): P
       date: data.date,
       timestamp: data.timestamp,
       priority: data.priority as 'high' | 'medium' | 'low',
-      author: data.profiles?.name || 'Anonymous',
+      author: data.profiles?.[0]?.name || 'Anonymous',
     };
   } catch (error) {
     console.error('Exception in addAnnouncement:', error);
@@ -528,7 +528,7 @@ export async function updateAnnouncement(id: string, announcement: Omit<Announce
       date: data.date,
       timestamp: data.timestamp,
       priority: data.priority as 'high' | 'medium' | 'low',
-      author: data.profiles?.name || 'Anonymous',
+      author: data.profiles?.[0]?.name || 'Anonymous',
     };
   } catch (error) {
     console.error('Exception in updateAnnouncement:', error);
