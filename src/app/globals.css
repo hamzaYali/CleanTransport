@@ -251,69 +251,101 @@
   display: block;
 }
 
-/* Gradient header animation */
+/* Login page styles */
 .gradient-header-animation {
-  background: linear-gradient(90deg, #a33a47, #c44d5d, #a33a47);
-  background-size: 200% 100%;
-  animation: gradientFlow 8s ease infinite;
-}
-
-@keyframes gradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-/* Glossy button styling */
-.glossy-button {
-  background: linear-gradient(90deg, #a33a47, #c44d5d);
-  color: white;
-  box-shadow: 0 4px 15px rgba(163, 58, 71, 0.4);
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
   position: relative;
   overflow: hidden;
+}
+
+.gradient-header-animation::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 80%);
+  animation: pulse 8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.2;
+  }
+}
+
+.glossy-button {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  color: white;
+  box-shadow: 0 4px 8px rgba(163, 58, 71, 0.2);
+  transition: all 0.3s ease;
+}
+
+.glossy-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 10px rgba(163, 58, 71, 0.3);
+}
+
+.glossy-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 5px rgba(163, 58, 71, 0.3);
 }
 
 .glossy-button::before {
   content: '';
   position: absolute;
   top: 0;
-  left: -100%;
+  left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-  transition: 0.6s;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+  border-radius: 9999px;
 }
 
-.glossy-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 7px 20px rgba(163, 58, 71, 0.5);
+.loading-dots {
+  display: inline-flex;
 }
 
-.glossy-button:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(163, 58, 71, 0.4);
+.dot {
+  animation: dots 1.5s infinite;
+  opacity: 0;
 }
 
-.glossy-button:hover::before {
-  left: 100%;
-  transition: 0.6s;
+.dot:nth-child(1) {
+  animation-delay: 0s;
 }
 
-/* Login page specific styles */
+.dot:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 1s;
+}
+
+@keyframes dots {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .no-scroll-login {
-  height: 100vh;
   overflow: hidden;
 }
 
@@ -326,35 +358,5 @@
   .login-form-content {
     padding-top: 0.75rem !important;
     padding-bottom: 0.75rem !important;
-  }
-}
-
-/* Add loading dots animation for login button */
-.loading-dots {
-  display: inline-flex;
-}
-
-.loading-dots .dot {
-  animation: loading 1.4s infinite both;
-  opacity: 0.5;
-}
-
-.loading-dots .dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.loading-dots .dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes loading {
-  0% {
-    opacity: 0.2;
-  }
-  20% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.2;
   }
 }

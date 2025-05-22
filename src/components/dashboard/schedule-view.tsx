@@ -10,7 +10,7 @@ import { generateScheduleCSV } from '@/lib/export-service';
 interface ScheduleViewProps {
   date: Date;
   transports: Transport[];
-  role: 'admin' | 'employee';
+  role: 'admin' | 'employee' | 'viewer';
   onDeleteTransport?: (id: string) => void;
   onEditTransport?: (transport: Transport) => void;
 }

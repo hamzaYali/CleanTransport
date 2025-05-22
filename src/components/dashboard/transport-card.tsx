@@ -2,15 +2,20 @@ import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FaMapMarkerAlt, FaClock, FaUser, FaCar, FaClipboard } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaClock, FaUser, FaCar, FaClipboard, FaEdit, FaTrash } from 'react-icons/fa';
 import { Transport } from '@/lib/data';
+import { useAuth } from '@/lib/auth-context';
 
 interface TransportCardProps {
   transport: Transport;
-  role: 'admin' | 'employee';
+  onEditTransport?: (transport: Transport) => void;
+  onDeleteTransport?: (id: string) => void;
 }
 
-export function TransportCard({ transport, role }: TransportCardProps) {
+export function TransportCard({ transport, onEditTransport, onDeleteTransport }: TransportCardProps) {
+  const { user } = useAuth();
+  const isAdmin = !!user; // User is logged in = admin
+  
   const statusClass = {
     completed: 'status-badge-completed',
     'in-progress': 'status-badge-in-progress',
@@ -92,13 +97,24 @@ export function TransportCard({ transport, role }: TransportCardProps) {
           </div>
         </div>
 
-        {role === 'admin' && (
+        {isAdmin && onEditTransport && onDeleteTransport && (
           <div className="flex justify-end space-x-2 pt-2">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onEditTransport(transport)}
+            >
+              <FaEdit className="mr-2 h-4 w-4" />
               Edit
             </Button>
-            <Button variant="outline" size="sm">
-              View Details
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => onDeleteTransport(transport.id)}
+            >
+              <FaTrash className="mr-2 h-4 w-4" />
+              Delete
             </Button>
           </div>
         )}

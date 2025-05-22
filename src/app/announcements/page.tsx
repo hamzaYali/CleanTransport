@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
-import { useAuth } from '@/lib/auth-context';
 import { getAnnouncements, Announcement } from '@/lib/data';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,16 +13,14 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { updateLastAnnouncementView } from '@/lib/utils';
+import { updateLastAnnouncementView, getLastAnnouncementView } from '@/lib/utils';
 import { 
   addAnnouncement as addAnnouncementToDb, 
   updateAnnouncement as updateAnnouncementInDb,
   deleteAnnouncement as deleteAnnouncementFromDb,
   fetchAnnouncements
 } from '@/lib/db-service';
-
-// Helper function to create a new unique ID
-const generateId = () => `A-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+import { useAuth } from '@/lib/auth-context';
 
 // Safe localStorage access that only runs on the client
 const getLocalStorage = (key: string, defaultValue: any = null) => {
@@ -62,7 +59,6 @@ function AnnouncementForm({
   onCancel: () => void; 
   announcementToEdit?: Announcement;
 }) {
-  const { user } = useAuth();
   const [title, setTitle] = useState(announcementToEdit?.title || '');
   const [content, setContent] = useState(announcementToEdit?.content || '');
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>(announcementToEdit?.priority || 'medium');
@@ -80,10 +76,10 @@ function AnnouncementForm({
       date: currentDate,
       timestamp: now.toISOString(),
       priority,
-      author: user?.username || 'Admin',
+      author: 'Administrator',
     };
     
-    // Add the id only for editing, so new announcements get a proper UUID from Supabase
+    // Add the id only for editing
     if (announcementToEdit?.id) {
       announcement.id = announcementToEdit.id;
     }
@@ -151,19 +147,21 @@ function AnnouncementForm({
 
 export default function AnnouncementsPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | undefined>(undefined);
+  const { user } = useAuth();
+  const isAdmin = !!user; // User is logged in = admin
+  const lastSeen = getLastAnnouncementView();
   
   // Initialize announcements from localStorage + sample data and mark as viewed
   useEffect(() => {
     const loadAnnouncements = async () => {
       try {
-        // Fetch announcements from Supabase
-        const dbAnnouncements = await fetchAnnouncements();
+        // Fetch announcements from localStorage
+        const localAnnouncements = await fetchAnnouncements();
         
-        setAnnouncements(dbAnnouncements);
+        setAnnouncements(localAnnouncements);
         
         // Mark announcements as viewed
         updateLastAnnouncementView();
@@ -171,17 +169,9 @@ export default function AnnouncementsPage() {
         console.error("Error fetching announcements:", error);
         toast.error("Failed to load announcements");
         
-        // Fallback to local announcements if Supabase fetch fails
-        const userAnnouncements = getLocalStorage('userAnnouncements', []);
+        // Fallback to sample data
         const sampleAnnouncements = getAnnouncements();
-        const deletedAnnouncementIds = getLocalStorage('deletedAnnouncementIds', []);
-        
-        // Filter out deleted sample announcements
-        const filteredSampleAnnouncements = sampleAnnouncements.filter(
-          announcement => !deletedAnnouncementIds.includes(announcement.id)
-        );
-        
-        setAnnouncements([...filteredSampleAnnouncements, ...userAnnouncements]);
+        setAnnouncements(sampleAnnouncements);
       }
     };
     
@@ -196,7 +186,7 @@ export default function AnnouncementsPage() {
       let result: Announcement | null = null;
       
       if (isEdit) {
-        // Update the announcement in Supabase
+        // Update the announcement
         result = await updateAnnouncementInDb(announcement.id, announcement);
         
         if (result) {
@@ -207,25 +197,25 @@ export default function AnnouncementsPage() {
           setAnnouncements(updatedAnnouncements);
           toast.success("Announcement updated successfully!");
         } else {
-          toast.error("Failed to update announcement in database");
+          toast.error("Failed to update announcement");
         }
       } else {
-        // Add a new announcement to Supabase
+        // Add a new announcement
         result = await addAnnouncementToDb(announcement);
         
         if (result) {
-          // Update local state with the result from Supabase that includes the ID
+          // Update local state with the result that includes the ID
           setAnnouncements([...announcements, result]);
           toast.success("Announcement created successfully!");
         } else {
-          toast.error("Failed to add announcement to database");
+          toast.error("Failed to add announcement");
         }
       }
       
       setShowForm(false);
       setEditingAnnouncement(undefined);
     } catch (error) {
-      console.error("Error saving announcement to Supabase:", error);
+      console.error("Error saving announcement:", error);
       toast.error("Error saving announcement: " + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -237,7 +227,7 @@ export default function AnnouncementsPage() {
   
   const handleDeleteAnnouncement = async (id: string) => {
     try {
-      // Delete from Supabase
+      // Delete from localStorage
       const success = await deleteAnnouncementFromDb(id);
       
       if (success) {
@@ -246,43 +236,53 @@ export default function AnnouncementsPage() {
         setAnnouncements(updatedAnnouncements);
         toast.success("Announcement deleted successfully!");
       } else {
-        toast.error("Failed to delete announcement from database");
+        toast.error("Failed to delete announcement");
       }
     } catch (error) {
-      console.error("Error deleting announcement from Supabase:", error);
-      toast.error("Error deleting announcement: " + (error instanceof Error ? error.message : String(error)));
+      console.error("Error deleting announcement:", error);
+      toast.error("Failed to delete announcement. Please try again.");
     }
   };
   
-  // Sort announcements by timestamp (newest first)
+  // Sort announcements by date (newest first)
   const sortedAnnouncements = [...announcements].sort((a, b) => {
-    // Sort by timestamp (newest first)
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
   
+  // Function to get appropriate badge style based on priority
+  const getBadgeStyle = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'bg-red-500 text-white hover:bg-red-600';
+      case 'medium':
+        return 'bg-amber-500 text-white hover:bg-amber-600';
+      default:
+        return 'bg-blue-500 text-white hover:bg-blue-600';
+    }
+  };
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center">
           <Button 
             variant="outline" 
             size="sm" 
+            className="mr-4"
             onClick={() => router.push('/')}
-            className="mb-2 sm:mb-0"
           >
             <FaArrowLeft className="mr-2 h-4 w-4" />
             Back to Schedule
           </Button>
-          <h1 className="text-2xl font-bold">Announcements</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
         </div>
-        
-        {isAuthenticated && user?.isAdmin && (
+        {isAdmin && (
           <Button 
             onClick={() => {
               setEditingAnnouncement(undefined);
               setShowForm(true);
             }}
-            className="bg-secondary hover:bg-secondary-hover text-secondary-foreground"
+            className="bg-primary hover:bg-primary-dark text-white"
           >
             <FaPlus className="mr-2 h-4 w-4" />
             New Announcement
@@ -290,7 +290,7 @@ export default function AnnouncementsPage() {
         )}
       </div>
       
-      {isAuthenticated && user?.isAdmin && showForm && (
+      {showForm && isAdmin && (
         <AnnouncementForm 
           onSave={handleSaveAnnouncement}
           onCancel={() => {
@@ -301,81 +301,66 @@ export default function AnnouncementsPage() {
         />
       )}
       
-      <div className="space-y-4">
+      <div className="grid gap-6">
         {sortedAnnouncements.length > 0 ? (
-          sortedAnnouncements.map(announcement => (
-            <Card key={announcement.id} className="shadow-sm">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                      <FaBullhorn className="text-primary h-4 w-4" />
-                      {announcement.title}
-                      {announcement.date === format(new Date(), 'yyyy-MM-dd') && (
-                        <Badge variant="success" className="ml-2 text-[10px] h-5 px-1.5">NEW</Badge>
+          sortedAnnouncements.map((announcement) => {
+            const isNew = new Date(announcement.timestamp).getTime() > lastSeen;
+            return (
+              <Card key={announcement.id} className="overflow-hidden">
+                <CardHeader className="bg-slate-50 pb-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <Badge className={getBadgeStyle(announcement.priority)}>
+                        {announcement.priority.toUpperCase()}
+                      </Badge>
+                      {isNew && (
+                        <span className="ml-2 inline-block align-middle px-2 py-0.5 text-xs font-semibold bg-green-500 text-white rounded-full animate-pulse">New</span>
                       )}
-                    </CardTitle>
-                    <CardDescription className="text-sm text-gray-500">
-                      Posted: {format(parseISO(announcement.date), 'MMM dd, yyyy')} at {format(parseISO(announcement.timestamp), 'h:mm a')} by {announcement.author}
-                    </CardDescription>
+                      <CardTitle className="mt-2 text-xl">{announcement.title}</CardTitle>
+                      <CardDescription className="text-sm mt-1">
+                        {announcement.date} at {format(new Date(announcement.timestamp), 'h:mm a')} by {announcement.author}
+                      </CardDescription>
+                    </div>
+                    {isAdmin && (
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          onClick={() => handleEditAnnouncement(announcement)}
+                        >
+                          <FaEdit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          onClick={() => handleDeleteAnnouncement(announcement.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <FaTrash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  <Badge 
-                    variant={
-                      announcement.priority === 'high' ? 'danger' : 
-                      announcement.priority === 'medium' ? 'warning' : 'info'
-                    }
-                  >
-                    {announcement.priority.charAt(0).toUpperCase() + announcement.priority.slice(1)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="py-3">
-                <p className="text-sm whitespace-pre-wrap">{announcement.content}</p>
-              </CardContent>
-              {isAuthenticated && user?.isAdmin && (
-                <CardFooter className="pt-2 pb-4 flex justify-end">
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditAnnouncement(announcement)}
-                      className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
-                    >
-                      <FaEdit className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteAnnouncement(announcement.id)}
-                      className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-100"
-                    >
-                      <FaTrash className="h-4 w-4" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </div>
-                </CardFooter>
-              )}
-            </Card>
-          ))
+                </CardHeader>
+                <CardContent className="pt-4 whitespace-pre-wrap">
+                  {announcement.content}
+                </CardContent>
+              </Card>
+            );
+          })
         ) : (
-          <div className="text-center py-12 border rounded-lg">
-            <FaBullhorn className="mx-auto h-8 w-8 text-gray-400 mb-3" />
-            <p className="text-gray-500 mb-2">No announcements available.</p>
-            {isAuthenticated && user?.isAdmin && (
-              <Button 
-                onClick={() => {
-                  setEditingAnnouncement(undefined);
-                  setShowForm(true);
-                }}
-                variant="outline"
-                className="mt-4"
-              >
-                <FaPlus className="mr-2 h-4 w-4" />
-                Create your first announcement
-              </Button>
-            )}
-          </div>
+          <Card>
+            <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+              <FaBullhorn className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-medium mb-2">No Announcements Yet</h3>
+              <p className="text-muted-foreground">
+                {isAdmin 
+                  ? "There are no announcements posted yet. Create one to get started."
+                  : "There are no announcements posted yet."
+                }
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

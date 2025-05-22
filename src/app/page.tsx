@@ -5,7 +5,6 @@ import { addDays, format } from 'date-fns';
 import { DashboardHeader } from '@/components/dashboard/header';
 import { ScheduleView } from '@/components/dashboard/schedule-view';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { FaPlus } from 'react-icons/fa';
 import { Transport } from '@/lib/data';
@@ -15,6 +14,7 @@ import {
   deleteTransport, 
   fetchTransportsByDate 
 } from '@/lib/db-service';
+import { useAuth } from '@/lib/auth-context';
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -23,7 +23,8 @@ export default function Home() {
   const [transportToEdit, setTransportToEdit] = useState<Transport | undefined>(undefined);
   
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
+  const isAdmin = !!user; // User is logged in = admin
   
   const dateStr = format(currentDate, 'yyyy-MM-dd');
   
@@ -58,11 +59,12 @@ export default function Home() {
     setCurrentDate(date);
   };
   
-  const handleLoginClick = () => {
-    router.push('/login');
-  };
-  
   const handleDeleteTransport = async (id: string) => {
+    if (!isAdmin) {
+      toast.error("You must be logged in as an admin to delete transports");
+      return;
+    }
+    
     try {
       if (!id) {
         toast.error("Failed to delete transport: Missing ID");
@@ -87,6 +89,11 @@ export default function Home() {
   };
 
   const handleEditTransport = (transport: Transport) => {
+    if (!isAdmin) {
+      toast.error("You must be logged in as an admin to edit transports");
+      return;
+    }
+    
     try {
       if (!transport?.id) {
         toast.error("Failed to edit transport: Missing ID");
@@ -107,25 +114,24 @@ export default function Home() {
         onPreviousDate={handlePreviousDate}
         onNextDate={handleNextDate}
         onTodayClick={handleTodayClick}
-        onLoginClick={handleLoginClick}
         onDateSelect={handleDateSelect}
       />
       
-      {isAuthenticated && user?.isAdmin && (
-        <div className="mb-6">
-          {showAddForm ? (
-            <AddTransportForm 
-              onCancel={() => {
-                setShowAddForm(false);
-                setTransportToEdit(undefined);
-              }}
-              transportToEdit={transportToEdit}
-              onSuccess={async () => {
-                const fetchedTransports = await fetchTransportsByDate(dateStr);
-                setTransports(fetchedTransports);
-              }}
-            />
-          ) : (
+      <div className="mb-6">
+        {showAddForm ? (
+          <AddTransportForm 
+            onCancel={() => {
+              setShowAddForm(false);
+              setTransportToEdit(undefined);
+            }}
+            transportToEdit={transportToEdit}
+            onSuccess={async () => {
+              const fetchedTransports = await fetchTransportsByDate(dateStr);
+              setTransports(fetchedTransports);
+            }}
+          />
+        ) : (
+          isAdmin && (
             <div className="flex justify-end">
               <Button 
                 onClick={() => setShowAddForm(true)}
@@ -135,16 +141,16 @@ export default function Home() {
                 Add Transport Schedule
               </Button>
             </div>
-          )}
-        </div>
-      )}
+          )
+        )}
+      </div>
 
       <ScheduleView 
         date={currentDate} 
         transports={transports} 
-        role={isAuthenticated && user?.isAdmin ? "admin" : "employee"}
-        onDeleteTransport={isAuthenticated && user?.isAdmin ? handleDeleteTransport : undefined}
-        onEditTransport={isAuthenticated && user?.isAdmin ? handleEditTransport : undefined}
+        role={isAdmin ? "admin" : "viewer"}
+        onDeleteTransport={handleDeleteTransport}
+        onEditTransport={handleEditTransport}
       />
     </div>
   );

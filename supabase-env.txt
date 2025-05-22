@@ -1,0 +1,4 @@
+# Supabase configuration
+# Copy these values to your .env.local file
+NEXT_PUBLIC_SUPABASE_URL=https://ovjladizzuzlissxikbr.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92amxhZGl6enV6bGlzc3hpa2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4ODc2MjAsImV4cCI6MjA2MzQ2MzYyMH0.uRLqRTDDIFND8oOpmTlquNhm2Jdb9HAVzdOXkIl3d1Q 

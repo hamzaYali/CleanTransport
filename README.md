@@ -1,32 +1,31 @@
 # Transport Dashboard
 
-This is a transportation management dashboard built with Next.js, TypeScript, Tailwind CSS, and shadcn/ui components, using Supabase as the backend.
+This is a transportation management dashboard built with Next.js, TypeScript, Tailwind CSS, and shadcn/ui components, using Supabase for authentication and data persistence.
 
 ## Features
 
+- User authentication and authorization
 - Schedule management for transportation services
 - Staff assignment and tracking
 - Client information management
 - Announcements system
-- User authentication and authorization
 - Responsive design for all devices
+- Database-backed persistence with Supabase
 
 ## Supabase Integration
 
-This project uses the latest Supabase SSR (Server-Side Rendering) approach for authentication and data management.
+This project uses Supabase for authentication and database functionality:
+- User authentication with email/password
+- PostgreSQL database for data storage
+- Row-level security for data protection
+- Real-time updates (optional)
 
-### Authentication Flow
+### Data Model
 
-The application handles authentication using the following components:
-
-- `@supabase/ssr` for server and client-side Supabase clients
-- Middleware for session refreshing
-- AuthContext for client-side authentication state management
-
-### Server vs Client Components
-
-- **Server Components**: Use the server-side Supabase client for data fetching
-- **Client Components**: Use the browser-side Supabase client for interactive features
+The application uses the following database tables:
+- `profiles`: Extended user information
+- `transports`: Transportation schedule records
+- `announcements`: System announcements
 
 ## Setup
 
@@ -35,19 +34,17 @@ The application handles authentication using the following components:
    ```
    npm install
    ```
-3. Create a `.env.local` file with your Supabase credentials:
+3. Create a project in Supabase (https://supabase.com)
+4. Run the SQL migrations in `src/lib/migrations` in your Supabase SQL editor
+5. Create a `.env.local` file with your Supabase credentials:
    ```
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
-4. Start the development server:
+6. Start the development server:
    ```
    npm run dev
    ```
-
-## Database Setup
-
-See the `SUPABASE.md` file for detailed instructions on setting up your Supabase database.
 
 ## Getting Started
 
@@ -67,6 +64,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Data Structure
+
+The application maintains the following data structures in localStorage:
+
+- `transports`: List of all transport records
+- `announcements`: System announcements
+- `lastAnnouncementView`: Timestamp for tracking unread announcements
 
 ## Learn More
 
@@ -75,7 +79,8 @@ To learn more about Next.js, take a look at the following resources:
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
+## Deployment
 
+The application can be deployed to any static hosting service since it doesn't require a backend server.
 
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Check out [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

@@ -6,46 +6,20 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Get the last time announcements were viewed
-export function getLastAnnouncementView(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  
-  try {
-    return localStorage.getItem('lastAnnouncementView');
-  } catch (error) {
-    console.error('Error getting last announcement view time:', error);
-    return null;
-  }
+export function getLastAnnouncementView(): number {
+  if (typeof window === 'undefined') return 0;
+  const ts = localStorage.getItem('lastAnnouncementView');
+  return ts ? parseInt(ts, 10) : 0;
 }
 
 // Update the last time announcements were viewed
-export function updateLastAnnouncementView(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  
-  try {
-    localStorage.setItem('lastAnnouncementView', new Date().toISOString());
-  } catch (error) {
-    console.error('Error updating last announcement view time:', error);
-  }
+export function updateLastAnnouncementView() {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('lastAnnouncementView', Date.now().toString());
 }
 
 // Count new announcements since last view
-export function countNewAnnouncements(announcements: any[]): number {
-  const lastViewTime = getLastAnnouncementView();
-  
-  if (!lastViewTime) {
-    // If never viewed before, all announcements are new
-    return announcements.length;
-  }
-  
-  const lastViewDate = new Date(lastViewTime);
-  
-  // Count announcements with timestamps newer than lastViewTime
-  return announcements.filter(announcement => {
-    const announcementDate = new Date(announcement.timestamp);
-    return announcementDate > lastViewDate;
-  }).length;
+export function countNewAnnouncements(announcements: { timestamp: string }[]): number {
+  const lastSeen = getLastAnnouncementView();
+  return announcements.filter(a => new Date(a.timestamp).getTime() > lastSeen).length;
 }

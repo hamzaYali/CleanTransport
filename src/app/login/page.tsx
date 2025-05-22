@@ -1,35 +1,38 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { FaCar, FaUser, FaLock } from 'react-icons/fa';
+import { FaUser, FaLock } from 'react-icons/fa';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
   const router = useRouter();
-  const { login, isAuthenticated } = useAuth();
+  const searchParams = useSearchParams();
+  const redirectPath = searchParams.get('redirect') || '/';
+  const { signIn, user } = useAuth();
   
   // If already authenticated, redirect to home
   useEffect(() => {
-    if (isAuthenticated) {
+    if (user) {
       router.push('/');
     }
-  }, [isAuthenticated, router]);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
+  }, [user, router]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!username || !password) {
+    if (!loginEmail || !loginPassword) {
       setError('Please enter both username and password');
       return;
     }
@@ -44,13 +47,15 @@ export default function LoginPage() {
     }, 10000); // 10 seconds timeout
     
     try {
-      const success = await login(username, password);
+      const { error: signInError } = await signIn(loginEmail, loginPassword);
       
       // Clear timeout since we got a response
       clearTimeout(loginTimeout);
       
-      if (success) {
+      if (!signInError) {
         // Successful login handled by auth state change listener
+        toast.success('Login successful!');
+        router.push(redirectPath);
       } else {
         setError('Invalid username or password');
         setIsLoading(false);
@@ -73,7 +78,7 @@ export default function LoginPage() {
             <CardTitle className="text-2xl font-bold text-white">Transport Dashboard</CardTitle>
           </div>
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleLogin}>
             <CardContent className="p-6 space-y-4 login-form-content">
               {error && (
                 <div className="p-2 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
@@ -82,17 +87,17 @@ export default function LoginPage() {
               )}
               
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-gray-700 font-medium">Username</Label>
+                <Label htmlFor="login-email" className="text-gray-700 font-medium">Username</Label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <FaUser className="h-4 w-4 text-gray-400" />
                   </div>
                   <Input
-                    id="username"
-                    type="text"
+                    id="login-email"
+                    type="email"
                     placeholder="Enter your username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
                     className="pl-10 bg-[#EEF2FB] border-0 rounded-xl h-12 transition-all duration-300 focus:bg-[#f5f7ff] focus:ring focus:ring-[#a33a47]/20"
                     required
                   />
@@ -100,17 +105,17 @@ export default function LoginPage() {
               </div>
               
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                <Label htmlFor="login-password" className="text-gray-700 font-medium">Password</Label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <FaLock className="h-4 w-4 text-gray-400" />
                   </div>
                   <Input
-                    id="password"
+                    id="login-password"
                     type="password"
                     placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
                     className="pl-10 bg-[#EEF2FB] border-0 rounded-xl h-12 transition-all duration-300 focus:bg-[#f5f7ff] focus:ring focus:ring-[#a33a47]/20"
                     required
                   />

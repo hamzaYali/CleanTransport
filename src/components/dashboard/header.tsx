@@ -2,12 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { cn, countNewAnnouncements, updateLastAnnouncementView } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { FaUser, FaSignOutAlt, FaBullhorn } from 'react-icons/fa';
+import { FaBullhorn, FaUserCircle, FaSignOutAlt } from 'react-icons/fa';
 import { DatePicker } from '@/components/ui/date-picker';
-import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { getAnnouncements } from '@/lib/data';
-import { fetchAnnouncements } from '@/lib/db-service';
+import { useAuth } from '@/lib/auth-context';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 
 // Safe localStorage access functions
 const getLocalStorage = (key: string, defaultValue: any = null) => {
@@ -29,7 +35,6 @@ interface DashboardHeaderProps {
   onPreviousDate: () => void;
   onNextDate: () => void;
   onTodayClick: () => void;
-  onLoginClick: () => void;
   onDateSelect: (date: Date) => void;
 }
 
@@ -38,29 +43,19 @@ export function DashboardHeader({
   onPreviousDate,
   onNextDate,
   onTodayClick,
-  onLoginClick,
   onDateSelect,
 }: DashboardHeaderProps) {
   const formattedDate = format(date, 'MMMM d, yyyy');
-  const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const [newAnnouncementsCount, setNewAnnouncementsCount] = useState(0);
+  const { user, signOut } = useAuth();
   
   // Calculate number of new announcements
   useEffect(() => {
     // Fetch announcements and count new ones
     const loadAndCountAnnouncements = async () => {
       try {
-        // Fetch announcements from Supabase
-        const dbAnnouncements = await fetchAnnouncements();
-        
-        // Count new announcements (ones posted since last view)
-        const count = countNewAnnouncements(dbAnnouncements);
-        setNewAnnouncementsCount(count);
-      } catch (error) {
-        console.error("Error fetching announcements for counter:", error);
-        
-        // Fallback to local data if Supabase fetch fails
+        // Use local data for announcements
         const userAnnouncements = getLocalStorage('userAnnouncements', []);
         const sampleAnnouncements = getAnnouncements();
         const deletedAnnouncementIds = getLocalStorage('deletedAnnouncementIds', []);
@@ -76,6 +71,8 @@ export function DashboardHeader({
         // Count new announcements (ones posted since last view)
         const count = countNewAnnouncements(allAnnouncements);
         setNewAnnouncementsCount(count);
+      } catch (error) {
+        console.error("Error processing announcements:", error);
       }
     };
     
@@ -91,17 +88,15 @@ export function DashboardHeader({
     router.push('/announcements');
   };
 
-  // Update the handleLogout function
-  const handleLogout = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  // Handle sign out
+  const handleSignOut = async () => {
     try {
-      await logout();
+      await signOut();
+      toast.success('Signed out successfully');
+      router.push('/');
     } catch (error) {
-      console.error("Error during logout process:", error);
-      // Fallback direct navigation if there's an error
-      window.location.href = '/';
+      toast.error('Failed to sign out');
+      console.error('Sign out error:', error);
     }
   };
 
@@ -141,25 +136,37 @@ export function DashboardHeader({
             </span>
           )}
         </Button>
-        {isAuthenticated ? (
-          <div className="flex items-center space-x-2">
-            <span className="text-white/80">
-              Welcome, {user?.username}
-            </span>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="bg-white/10 hover:bg-white/20 text-white" 
-              onClick={handleLogout}
-            >
-              <FaSignOutAlt className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-          </div>
+        
+        {user ? (
+          // Show admin controls if logged in
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-white/10 hover:bg-white/20 text-white"
+              >
+                <FaUserCircle className="mr-2 h-4 w-4" />
+                Admin
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleSignOut}>
+                <FaSignOutAlt className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
-          <Button variant="outline" size="sm" className="bg-white/10 hover:bg-white/20 text-white" onClick={onLoginClick}>
-            <FaUser className="mr-2 h-4 w-4" />
-            Login
+          // Show login button if not logged in
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="bg-white/10 hover:bg-white/20 text-white"
+            onClick={() => router.push('/login')}
+          >
+            <FaUserCircle className="mr-2 h-4 w-4" />
+            Admin Login
           </Button>
         )}
       </div>

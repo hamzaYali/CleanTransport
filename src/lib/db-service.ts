@@ -1,12 +1,7 @@
 import { format, addDays } from 'date-fns';
-import { createClient } from '@/utils/supabase/client';
-import { TABLES } from './supabase';
 import { Transport, Announcement, DaySchedule } from './data';
-
-// Create Supabase client - recreate on each call to prevent stale client issues
-function getSupabaseClient() {
-  return createClient();
-}
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from './supabase';
 
 // ===== Transport Operations =====
 
@@ -15,48 +10,65 @@ function getSupabaseClient() {
  */
 export async function fetchTransportsByDate(date: string): Promise<Transport[]> {
   try {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from(TABLES.TRANSPORTS)
-      .select('*')
+      .from('transports')
+      .select(`
+        id,
+        client_name,
+        client_phone,
+        pickup_location,
+        pickup_time,
+        pickup_date,
+        dropoff_location,
+        dropoff_time,
+        dropoff_date,
+        requested_by,
+        driver_id,
+        assistant_id,
+        client_count,
+        status,
+        notes,
+        vehicle,
+        car_seats
+      `)
       .eq('pickup_date', date)
       .order('pickup_time');
-    
+
     if (error) {
       console.error('Error fetching transports:', error);
       return [];
     }
-    
-    // Transform from database schema to application schema
-    return data.map(item => ({
-      id: item.id,
+
+    // Convert database format to app format
+    return data.map(t => ({
+      id: t.id,
       client: {
-        name: item.client_name,
-        phone: item.client_phone,
+        name: t.client_name,
+        phone: t.client_phone || '',
       },
       pickup: {
-        location: item.pickup_location,
-        time: item.pickup_time,
-        date: item.pickup_date,
+        location: t.pickup_location,
+        time: t.pickup_time || '',
+        date: t.pickup_date,
       },
       dropoff: {
-        location: item.dropoff_location,
-        time: item.dropoff_time,
-        date: item.dropoff_date,
+        location: t.dropoff_location || '',
+        time: t.dropoff_time || '',
+        date: t.dropoff_date || t.pickup_date,
       },
       staff: {
-        requestedBy: item.staff_requester,
-        driver: item.staff_driver,
-        assistant: item.staff_assistant || undefined,
+        requestedBy: t.requested_by || '',
+        driver: t.driver_id,
+        assistant: t.assistant_id,
       },
-      clientCount: item.client_count,
-      status: item.status,
-      notes: item.notes || undefined,
-      vehicle: item.vehicle || undefined,
-      carSeats: item.car_seats || 0,
+      clientCount: t.client_count || 1,
+      status: t.status as 'completed' | 'in-progress' | 'scheduled',
+      notes: t.notes,
+      vehicle: t.vehicle,
+      carSeats: t.car_seats || 0,
     }));
   } catch (error) {
-    console.error('Error fetching transports:', error);
+    console.error('Exception in fetchTransportsByDate:', error);
     return [];
   }
 }
@@ -75,67 +87,87 @@ export async function fetchWeeklySchedule(): Promise<DaySchedule[]> {
       return format(currentDate, 'yyyy-MM-dd');
     });
     
-    // Fetch all transports for the week in a single query
-    const supabase = getSupabaseClient();
+    // Get all transports for the next 7 days
     const { data, error } = await supabase
-      .from(TABLES.TRANSPORTS)
-      .select('*')
+      .from('transports')
+      .select(`
+        id,
+        client_name,
+        client_phone,
+        pickup_location,
+        pickup_time,
+        pickup_date,
+        dropoff_location,
+        dropoff_time,
+        dropoff_date,
+        requested_by,
+        driver_id,
+        assistant_id,
+        client_count,
+        status,
+        notes,
+        vehicle,
+        car_seats
+      `)
       .in('pickup_date', dates)
+      .order('pickup_date')
       .order('pickup_time');
     
     if (error) {
       console.error('Error fetching weekly schedule:', error);
       // Return empty schedule with dates
-      return dates.map(date => ({
-        date,
-        transports: [],
-      }));
+      return dates.map(date => ({ date, transports: [] }));
     }
     
-    // Transform from database schema to application schema
-    const transformedData = data.map(item => ({
-      id: item.id,
-      client: {
-        name: item.client_name,
-        phone: item.client_phone,
-      },
-      pickup: {
-        location: item.pickup_location,
-        time: item.pickup_time,
-        date: item.pickup_date,
-      },
-      dropoff: {
-        location: item.dropoff_location,
-        time: item.dropoff_time,
-        date: item.dropoff_date,
-      },
-      staff: {
-        requestedBy: item.staff_requester,
-        driver: item.staff_driver,
-        assistant: item.staff_assistant || undefined,
-      },
-      clientCount: item.client_count,
-      status: item.status,
-      notes: item.notes || undefined,
-      vehicle: item.vehicle || undefined,
-      carSeats: item.car_seats || 0,
-    }));
-    
-    // Group by date
-    for (const date of dates) {
-      const transportsForDay = transformedData.filter(
-        transport => transport.pickup.date === date
-      );
+    // Convert and group by date
+    const transportsByDate = data.reduce((acc, t) => {
+      const date = t.pickup_date;
+      if (!acc[date]) {
+        acc[date] = [];
+      }
       
+      acc[date].push({
+        id: t.id,
+        client: {
+          name: t.client_name,
+          phone: t.client_phone || '',
+        },
+        pickup: {
+          location: t.pickup_location,
+          time: t.pickup_time || '',
+          date: t.pickup_date,
+        },
+        dropoff: {
+          location: t.dropoff_location || '',
+          time: t.dropoff_time || '',
+          date: t.dropoff_date || t.pickup_date,
+        },
+        staff: {
+          requestedBy: t.requested_by || '',
+          driver: t.driver_id,
+          assistant: t.assistant_id,
+        },
+        clientCount: t.client_count || 1,
+        status: t.status as 'completed' | 'in-progress' | 'scheduled',
+        notes: t.notes,
+        vehicle: t.vehicle,
+        carSeats: t.car_seats || 0,
+      });
+      
+      return acc;
+    }, {} as Record<string, Transport[]>);
+    
+    // Create the weekly schedule with all dates
+    for (const date of dates) {
       weeklySchedule.push({
         date,
-        transports: transportsForDay,
+        transports: transportsByDate[date] || [],
       });
     }
     
     return weeklySchedule;
   } catch (error) {
-    console.error('Error fetching weekly schedule:', error);
+    console.error('Exception in fetchWeeklySchedule:', error);
     // Return empty schedule with dates
     return Array.from({ length: 7 }, (_, i) => {
       const currentDate = addDays(today, i);
@@ -159,8 +191,10 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
       return null;
     }
     
-    // Create a clean data object for insert
-    const transportData = {
+    console.log("Adding transport with data:", JSON.stringify(transport, null, 2));
+    
+    // Convert to database format
+    const dbTransport = {
       client_name: transport.client.name,
       client_phone: transport.client.phone || '',
       pickup_location: transport.pickup.location,
@@ -169,9 +203,9 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
       dropoff_location: transport.dropoff?.location || '',
       dropoff_time: transport.dropoff?.time || '',
       dropoff_date: transport.dropoff?.date || transport.pickup.date,
-      staff_requester: transport.staff.requestedBy || '',
-      staff_driver: transport.staff.driver,
-      staff_assistant: transport.staff.assistant || null,
+      requested_by: transport.staff.requestedBy || null,
+      driver_id: transport.staff.driver,
+      assistant_id: transport.staff.assistant || null,
       client_count: transport.clientCount || 1,
       status: transport.status || 'scheduled',
       notes: transport.notes || null,
@@ -179,25 +213,19 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
       car_seats: transport.carSeats || 0,
     };
     
-    // Direct insert with simplified error handling
-    const supabase = getSupabaseClient();
+    // Insert into database
     const { data, error } = await supabase
-      .from(TABLES.TRANSPORTS)
-      .insert(transportData)
+      .from('transports')
+      .insert(dbTransport)
       .select()
       .single();
     
     if (error) {
-      console.error('Transport insert failed:', error.message);
+      console.error('Error adding transport:', error);
       return null;
     }
     
-    if (!data) {
-      console.error('Transport insert returned no data');
-      return null;
-    }
-    
-    // Return the created transport with consistent formatting
+    // Convert back to app format
     return {
       id: data.id,
       client: {
@@ -215,14 +243,14 @@ export async function addTransport(transport: Omit<Transport, 'id'>): Promise<Tr
         date: data.dropoff_date || data.pickup_date,
       },
       staff: {
-        requestedBy: data.staff_requester || '',
-        driver: data.staff_driver,
-        assistant: data.staff_assistant || undefined,
+        requestedBy: data.requested_by || '',
+        driver: data.driver_id,
+        assistant: data.assistant_id,
       },
       clientCount: data.client_count || 1,
-      status: data.status || 'scheduled',
-      notes: data.notes || undefined,
-      vehicle: data.vehicle || undefined,
+      status: data.status as 'completed' | 'in-progress' | 'scheduled',
+      notes: data.notes,
+      vehicle: data.vehicle,
       carSeats: data.car_seats || 0,
     };
   } catch (error) {
@@ -247,8 +275,8 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
       return null;
     }
     
-    // Create a clean data object for update
-    const transportData = {
+    // Convert to database format
+    const dbTransport = {
       client_name: transport.client.name,
       client_phone: transport.client.phone || '',
       pickup_location: transport.pickup.location,
@@ -257,9 +285,9 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
       dropoff_location: transport.dropoff?.location || '',
       dropoff_time: transport.dropoff?.time || '',
       dropoff_date: transport.dropoff?.date || transport.pickup.date,
-      staff_requester: transport.staff.requestedBy || '',
-      staff_driver: transport.staff.driver,
-      staff_assistant: transport.staff.assistant || null,
+      requested_by: transport.staff.requestedBy || null,
+      driver_id: transport.staff.driver,
+      assistant_id: transport.staff.assistant || null,
       client_count: transport.clientCount || 1,
       status: transport.status || 'scheduled',
       notes: transport.notes || null,
@@ -267,26 +295,20 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
       car_seats: transport.carSeats || 0,
     };
     
-    // Direct update with simplified error handling
-    const supabase = getSupabaseClient();
+    // Update in database
     const { data, error } = await supabase
-      .from(TABLES.TRANSPORTS)
-      .update(transportData)
+      .from('transports')
+      .update(dbTransport)
       .eq('id', id)
       .select()
       .single();
     
     if (error) {
-      console.error('Transport update failed:', error.message);
+      console.error('Error updating transport:', error);
       return null;
     }
     
-    if (!data) {
-      console.error('Transport update returned no data');
-      return null;
-    }
-    
-    // Return the updated transport with consistent formatting
+    // Convert back to app format
     return {
       id: data.id,
       client: {
@@ -304,14 +326,14 @@ export async function updateTransport(id: string, transport: Omit<Transport, 'id
         date: data.dropoff_date || data.pickup_date,
       },
       staff: {
-        requestedBy: data.staff_requester || '',
-        driver: data.staff_driver,
-        assistant: data.staff_assistant || undefined,
+        requestedBy: data.requested_by || '',
+        driver: data.driver_id,
+        assistant: data.assistant_id,
       },
       clientCount: data.client_count || 1,
-      status: data.status || 'scheduled',
-      notes: data.notes || undefined,
-      vehicle: data.vehicle || undefined,
+      status: data.status as 'completed' | 'in-progress' | 'scheduled',
+      notes: data.notes,
+      vehicle: data.vehicle,
       carSeats: data.car_seats || 0,
     };
   } catch (error) {
@@ -330,15 +352,14 @@ export async function deleteTransport(id: string): Promise<boolean> {
       return false;
     }
     
-    // Direct delete with simplified error handling
-    const supabase = getSupabaseClient();
+    // Delete from database
     const { error } = await supabase
-      .from(TABLES.TRANSPORTS)
+      .from('transports')
       .delete()
       .eq('id', id);
     
     if (error) {
-      console.error('Transport delete failed:', error.message);
+      console.error('Error deleting transport:', error);
       return false;
     }
     
@@ -356,10 +377,17 @@ export async function deleteTransport(id: string): Promise<boolean> {
  */
 export async function fetchAnnouncements(): Promise<Announcement[]> {
   try {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from(TABLES.ANNOUNCEMENTS)
-      .select('*')
+      .from('announcements')
+      .select(`
+        id,
+        title,
+        content,
+        date,
+        timestamp,
+        priority,
+        profiles(name)
+      `)
       .order('timestamp', { ascending: false });
     
     if (error) {
@@ -367,18 +395,18 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
       return [];
     }
     
-    // Transform from database schema to application schema
-    return data.map(item => ({
-      id: item.id,
-      title: item.title,
-      content: item.content,
-      date: item.date,
-      timestamp: item.timestamp,
-      priority: item.priority,
-      author: item.author,
+    // Convert to app format
+    return data.map(a => ({
+      id: a.id,
+      title: a.title,
+      content: a.content,
+      date: a.date,
+      timestamp: a.timestamp,
+      priority: a.priority as 'high' | 'medium' | 'low',
+      author: a.profiles?.name || 'Anonymous',
     }));
   } catch (error) {
-    console.error('Error fetching announcements:', error);
+    console.error('Exception in fetchAnnouncements:', error);
     return [];
   }
 }
@@ -394,50 +422,52 @@ export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): P
       return null;
     }
     
-    // Create clean data object with fallbacks
-    const announcementData = {
+    // Get current user ID
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error("No authenticated user found");
+      return null;
+    }
+    
+    // Convert to database format
+    const dbAnnouncement = {
       title: announcement.title,
       content: announcement.content,
       date: announcement.date || format(new Date(), 'yyyy-MM-dd'),
       timestamp: announcement.timestamp || new Date().toISOString(),
       priority: announcement.priority || 'normal',
-      author: announcement.author || 'Anonymous',
+      author_id: user.id,
     };
     
-    // Direct insert with improved error handling
-    const supabase = getSupabaseClient();
-    
-    // Debug auth state
-    const { data: authData } = await supabase.auth.getSession();
-    console.log('Auth session when adding announcement:', 
-      authData?.session ? 'Active session' : 'No active session');
-    
+    // Insert into database
     const { data, error } = await supabase
-      .from(TABLES.ANNOUNCEMENTS)
-      .insert(announcementData)
-      .select()
+      .from('announcements')
+      .insert(dbAnnouncement)
+      .select(`
+        id,
+        title,
+        content,
+        date,
+        timestamp,
+        priority,
+        profiles(name)
+      `)
       .single();
     
     if (error) {
-      console.error('Announcement insert failed:', error.message);
-      console.error('Error details:', error);
+      console.error('Error adding announcement:', error);
       return null;
     }
     
-    if (!data) {
-      console.error('Announcement insert returned no data');
-      return null;
-    }
-    
-    // Return consistent formatted result
+    // Convert to app format
     return {
       id: data.id,
       title: data.title,
       content: data.content,
-      date: data.date || format(new Date(), 'yyyy-MM-dd'),
-      timestamp: data.timestamp || new Date().toISOString(),
-      priority: data.priority || 'normal',
-      author: data.author || 'Anonymous',
+      date: data.date,
+      timestamp: data.timestamp,
+      priority: data.priority as 'high' | 'medium' | 'low',
+      author: data.profiles?.name || 'Anonymous',
     };
   } catch (error) {
     console.error('Exception in addAnnouncement:', error);
@@ -461,44 +491,44 @@ export async function updateAnnouncement(id: string, announcement: Omit<Announce
       return null;
     }
     
-    // Create clean data object with fallbacks
-    const announcementData = {
+    // Convert to database format
+    const dbAnnouncement = {
       title: announcement.title,
       content: announcement.content,
       date: announcement.date || format(new Date(), 'yyyy-MM-dd'),
-      timestamp: announcement.timestamp || new Date().toISOString(),
       priority: announcement.priority || 'normal',
-      author: announcement.author || 'Anonymous',
     };
     
-    // Direct update with improved error handling
-    const supabase = getSupabaseClient();
+    // Update in database
     const { data, error } = await supabase
-      .from(TABLES.ANNOUNCEMENTS)
-      .update(announcementData)
+      .from('announcements')
+      .update(dbAnnouncement)
       .eq('id', id)
-      .select()
+      .select(`
+        id,
+        title,
+        content,
+        date,
+        timestamp,
+        priority,
+        profiles(name)
+      `)
       .single();
     
     if (error) {
-      console.error('Announcement update failed:', error.message);
+      console.error('Error updating announcement:', error);
       return null;
     }
     
-    if (!data) {
-      console.error('Announcement update returned no data');
-      return null;
-    }
-    
-    // Return consistent formatted result
+    // Convert to app format
     return {
       id: data.id,
       title: data.title,
       content: data.content,
-      date: data.date || format(new Date(), 'yyyy-MM-dd'),
-      timestamp: data.timestamp || new Date().toISOString(),
-      priority: data.priority || 'normal',
-      author: data.author || 'Anonymous',
+      date: data.date,
+      timestamp: data.timestamp,
+      priority: data.priority as 'high' | 'medium' | 'low',
+      author: data.profiles?.name || 'Anonymous',
     };
   } catch (error) {
     console.error('Exception in updateAnnouncement:', error);
@@ -516,15 +546,14 @@ export async function deleteAnnouncement(id: string): Promise<boolean> {
       return false;
     }
     
-    // Direct delete with improved error handling
-    const supabase = getSupabaseClient();
+    // Delete from database
     const { error } = await supabase
-      .from(TABLES.ANNOUNCEMENTS)
+      .from('announcements')
       .delete()
       .eq('id', id);
     
     if (error) {
-      console.error('Announcement delete failed:', error.message);
+      console.error('Error deleting announcement:', error);
       return false;
     }
     
