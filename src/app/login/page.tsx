@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth-context';
 import { FaUser, FaLock } from 'react-icons/fa';
 import { toast } from 'sonner';
 
-export default function LoginPage() {
+function LoginPageInner() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -159,5 +159,13 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPageInner />
+    </Suspense>
   );
 } 
