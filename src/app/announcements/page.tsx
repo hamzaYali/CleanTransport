@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { updateLastAnnouncementView, getLastAnnouncementView } from '@/lib/utils';
+import { cn, markAnnouncementsAsSeen, getSeenAnnouncementIds } from '@/lib/utils';
 import { 
   addAnnouncement as addAnnouncementToDb, 
   updateAnnouncement as updateAnnouncementInDb,
@@ -147,24 +147,32 @@ function AnnouncementForm({
 
 export default function AnnouncementsPage() {
   const router = useRouter();
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcements, setAnnouncements] = useState<Array<Announcement>>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | undefined>(undefined);
   const { user } = useAuth();
   const isAdmin = !!user; // User is logged in = admin
-  const lastSeen = getLastAnnouncementView();
   
-  // Initialize announcements from localStorage + sample data and mark as viewed
+  // Initialize announcements from localStorage + sample data
   useEffect(() => {
     const loadAnnouncements = async () => {
       try {
-        // Fetch announcements from localStorage
-        const localAnnouncements = await fetchAnnouncements();
+        console.log('Debug - Announcements page loaded');
         
-        setAnnouncements(localAnnouncements);
+        // Fetch announcements from Supabase and ensure it's the correct type
+        const fetchedAnnouncements = await fetchAnnouncements();
         
-        // Mark announcements as viewed
-        updateLastAnnouncementView();
+        // Filter out any null values and ensure type safety
+        const validAnnouncements = fetchedAnnouncements
+          .filter(Boolean) as Announcement[];
+        
+        // Set announcements state with the fetched data
+        setAnnouncements(validAnnouncements);
+        
+        // Mark all loaded announcements as seen
+        const announcementIds = validAnnouncements.map(a => a.id);
+        console.log('Marking announcements as seen:', announcementIds);
+        markAnnouncementsAsSeen(announcementIds);
       } catch (error) {
         console.error("Error fetching announcements:", error);
         toast.error("Failed to load announcements");
@@ -172,6 +180,11 @@ export default function AnnouncementsPage() {
         // Fallback to sample data
         const sampleAnnouncements = getAnnouncements();
         setAnnouncements(sampleAnnouncements);
+        
+        // Mark sample announcements as seen too
+        if (sampleAnnouncements.length > 0) {
+          markAnnouncementsAsSeen(sampleAnnouncements.map(a => a.id));
+        }
       }
     };
     
@@ -190,10 +203,10 @@ export default function AnnouncementsPage() {
         result = await updateAnnouncementInDb(announcement.id, announcement);
         
         if (result) {
-          // Update local state
+          // Update local state with non-null result
           const updatedAnnouncements = announcements.map(a => 
-            a.id === announcement.id ? result : a
-          );
+            a.id === announcement.id ? result! : a
+          ) as Announcement[];
           setAnnouncements(updatedAnnouncements);
           toast.success("Announcement updated successfully!");
         } else {
@@ -304,42 +317,54 @@ export default function AnnouncementsPage() {
       <div className="grid gap-6">
         {sortedAnnouncements.length > 0 ? (
           sortedAnnouncements.map((announcement) => {
-            const isNew = new Date(announcement.timestamp).getTime() > lastSeen;
+            // Determine if this announcement has been seen before
+            const seenIds = getSeenAnnouncementIds();
+            const isNew = !seenIds.includes(announcement.id);
+            
             return (
-              <Card key={announcement.id} className="overflow-hidden">
+              <Card 
+                key={announcement.id} 
+                className="overflow-hidden relative"
+              >
+                {isNew && (
+                  <div className="absolute top-0 right-0">
+                    <div className="w-32 bg-green-500 text-white text-xs font-bold py-1 text-center transform rotate-45 translate-x-8 translate-y-3">
+                      NEW
+                    </div>
+                  </div>
+                )}
                 <CardHeader className="bg-slate-50 pb-4">
                   <div className="flex justify-between items-start">
                     <div>
                       <Badge className={getBadgeStyle(announcement.priority)}>
                         {announcement.priority.toUpperCase()}
                       </Badge>
-                      {isNew && (
-                        <span className="ml-2 inline-block align-middle px-2 py-0.5 text-xs font-semibold bg-green-500 text-white rounded-full animate-pulse">New</span>
-                      )}
                       <CardTitle className="mt-2 text-xl">{announcement.title}</CardTitle>
                       <CardDescription className="text-sm mt-1">
                         {announcement.date} at {format(new Date(announcement.timestamp), 'h:mm a')} by {announcement.author}
                       </CardDescription>
                     </div>
-                    {isAdmin && (
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => handleEditAnnouncement(announcement)}
-                        >
-                          <FaEdit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => handleDeleteAnnouncement(announcement.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <FaTrash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex items-center">
+                      {isAdmin && (
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            onClick={() => handleEditAnnouncement(announcement)}
+                          >
+                            <FaEdit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            onClick={() => handleDeleteAnnouncement(announcement.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <FaTrash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-4 whitespace-pre-wrap">

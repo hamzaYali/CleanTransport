@@ -5,21 +5,49 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Get the last time announcements were viewed
-export function getLastAnnouncementView(): number {
-  if (typeof window === 'undefined') return 0;
-  const ts = localStorage.getItem('lastAnnouncementView');
-  return ts ? parseInt(ts, 10) : 0;
+// Get the list of announcement IDs the user has seen
+export function getSeenAnnouncementIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const seenIds = localStorage.getItem('seenAnnouncementIds');
+    return seenIds ? JSON.parse(seenIds) : [];
+  } catch (error) {
+    console.error('Error getting seen announcements:', error);
+    return [];
+  }
 }
 
-// Update the last time announcements were viewed
-export function updateLastAnnouncementView() {
+// Mark announcements as seen
+export function markAnnouncementsAsSeen(announcementIds: string[]) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('lastAnnouncementView', Date.now().toString());
+  try {
+    const currentSeenIds = getSeenAnnouncementIds();
+    const allSeenIds = [...new Set([...currentSeenIds, ...announcementIds])]; // Deduplicate
+    localStorage.setItem('seenAnnouncementIds', JSON.stringify(allSeenIds));
+    console.log('Marked announcements as seen:', announcementIds);
+    console.log('All seen announcements:', allSeenIds);
+  } catch (error) {
+    console.error('Error marking announcements as seen:', error);
+  }
 }
 
-// Count new announcements since last view
-export function countNewAnnouncements(announcements: { timestamp: string }[]): number {
-  const lastSeen = getLastAnnouncementView();
-  return announcements.filter(a => new Date(a.timestamp).getTime() > lastSeen).length;
+// Check if there are any unseen announcements
+export function hasUnseenAnnouncements(announcements: { id: string }[]): boolean {
+  if (announcements.length === 0) return false;
+  
+  const seenIds = getSeenAnnouncementIds();
+  const unseenAnnouncements = announcements.filter(a => !seenIds.includes(a.id));
+  
+  console.log('Unseen announcements:', unseenAnnouncements.length);
+  return unseenAnnouncements.length > 0;
+}
+
+// Count unseen announcements
+export function countUnseenAnnouncements(announcements: { id: string }[]): number {
+  if (announcements.length === 0) return 0;
+  
+  const seenIds = getSeenAnnouncementIds();
+  const unseenAnnouncements = announcements.filter(a => !seenIds.includes(a.id));
+  
+  return unseenAnnouncements.length;
 }
