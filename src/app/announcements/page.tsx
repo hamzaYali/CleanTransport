@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { getAnnouncements, Announcement } from '@/lib/data';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -76,7 +76,8 @@ function AnnouncementForm({
       date: currentDate,
       timestamp: now.toISOString(),
       priority,
-      author: 'Administrator',
+      // Author will be set by the database service based on the logged-in user
+      author: announcementToEdit?.author || '',
     };
     
     // Add the id only for editing
@@ -274,6 +275,20 @@ export default function AnnouncementsPage() {
     }
   };
 
+  // Format the date to show "Today", "Yesterday", or the actual date
+  const formatAnnouncementDate = (dateStr: string, timestampStr: string) => {
+    const timestamp = new Date(timestampStr);
+    const timeString = format(timestamp, 'h:mm a');
+    
+    if (isToday(timestamp)) {
+      return `Today at ${timeString}`;
+    } else if (isYesterday(timestamp)) {
+      return `Yesterday at ${timeString}`;
+    } else {
+      return `${format(timestamp, 'MMM dd, yyyy')} at ${timeString}`;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
@@ -341,7 +356,7 @@ export default function AnnouncementsPage() {
                       </Badge>
                       <CardTitle className="mt-2 text-xl">{announcement.title}</CardTitle>
                       <CardDescription className="text-sm mt-1">
-                        {announcement.date} at {format(new Date(announcement.timestamp), 'h:mm a')} by {announcement.author}
+                        {formatAnnouncementDate(announcement.date, announcement.timestamp)} by {announcement.author}
                       </CardDescription>
                     </div>
                     <div className="flex items-center">

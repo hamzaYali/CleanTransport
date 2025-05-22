@@ -386,7 +386,8 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
         date,
         timestamp,
         priority,
-        profiles(name)
+        author_id,
+        profiles!announcements_author_id_fkey(id, name, email)
       `)
       .order('timestamp', { ascending: false });
     
@@ -396,15 +397,28 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
     }
     
     // Convert to app format
-    return data.map(a => ({
-      id: a.id,
-      title: a.title,
-      content: a.content,
-      date: a.date,
-      timestamp: a.timestamp,
-      priority: a.priority as 'high' | 'medium' | 'low',
-      author: a.profiles?.[0]?.name || 'Anonymous',
-    }));
+    return data.map(a => {
+      const profileData = a.profiles;
+      let authorName = 'Anonymous';
+      
+      // Try to get the name or fall back to email or user id
+      if (profileData && Array.isArray(profileData) && profileData.length > 0) {
+        const profile = profileData[0];
+        authorName = profile.name || profile.email || profile.id || 'Admin';
+      } else if (a.author_id) {
+        authorName = 'Admin';
+      }
+      
+      return {
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        date: a.date,
+        timestamp: a.timestamp,
+        priority: a.priority as 'high' | 'medium' | 'low',
+        author: authorName,
+      };
+    });
   } catch (error) {
     console.error('Exception in fetchAnnouncements:', error);
     return [];
@@ -450,7 +464,8 @@ export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): P
         date,
         timestamp,
         priority,
-        profiles(name)
+        author_id,
+        profiles!announcements_author_id_fkey(id, name, email)
       `)
       .single();
     
@@ -460,6 +475,17 @@ export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): P
     }
     
     // Convert to app format
+    const profileData = data.profiles;
+    let authorName = 'Anonymous';
+    
+    // Try to get the name or fall back to email or user id
+    if (profileData && Array.isArray(profileData) && profileData.length > 0) {
+      const profile = profileData[0];
+      authorName = profile.name || profile.email || profile.id || 'Admin';
+    } else if (data.author_id) {
+      authorName = 'Admin';
+    }
+    
     return {
       id: data.id,
       title: data.title,
@@ -467,7 +493,7 @@ export async function addAnnouncement(announcement: Omit<Announcement, 'id'>): P
       date: data.date,
       timestamp: data.timestamp,
       priority: data.priority as 'high' | 'medium' | 'low',
-      author: data.profiles?.[0]?.name || 'Anonymous',
+      author: authorName,
     };
   } catch (error) {
     console.error('Exception in addAnnouncement:', error);
@@ -511,7 +537,8 @@ export async function updateAnnouncement(id: string, announcement: Omit<Announce
         date,
         timestamp,
         priority,
-        profiles(name)
+        author_id,
+        profiles!announcements_author_id_fkey(id, name, email)
       `)
       .single();
     
@@ -521,6 +548,17 @@ export async function updateAnnouncement(id: string, announcement: Omit<Announce
     }
     
     // Convert to app format
+    const profileData = data.profiles;
+    let authorName = 'Anonymous';
+    
+    // Try to get the name or fall back to email or user id
+    if (profileData && Array.isArray(profileData) && profileData.length > 0) {
+      const profile = profileData[0];
+      authorName = profile.name || profile.email || profile.id || 'Admin';
+    } else if (data.author_id) {
+      authorName = 'Admin';
+    }
+    
     return {
       id: data.id,
       title: data.title,
@@ -528,7 +566,7 @@ export async function updateAnnouncement(id: string, announcement: Omit<Announce
       date: data.date,
       timestamp: data.timestamp,
       priority: data.priority as 'high' | 'medium' | 'low',
-      author: data.profiles?.[0]?.name || 'Anonymous',
+      author: authorName,
     };
   } catch (error) {
     console.error('Exception in updateAnnouncement:', error);
