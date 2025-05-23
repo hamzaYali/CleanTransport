@@ -341,9 +341,12 @@ export function AddTransportForm({
                   <option value="Bibi Z. - 402-677-4111">Bibi Z. - 402-677-4111</option>
                   <option value="Celina O. - 531-444-8631">Celina O. - 531-444-8631</option>
                   <option value="Claire Y. - 531-250-5462">Claire Y. - 531-250-5462</option>
+                  <option value="Eh Say - 531-444-8689">Eh Say - 531-444-8689</option>
                   <option value="Ehblu W. - 402-889-7091">Ehblu W. - 402-889-7091</option>
                   <option value="Ehtheyu S. - 402-810-0693">Ehtheyu S. - 402-810-0693</option>
                   <option value="Fartun A. - 531-444-9528">Fartun A. - 531-444-9528</option>
+                  <option value="Jamie G. - 531-250-7083">Jamie G. - 531-250-7083</option>
+                  <option value="Janeth A. - 402-677-5127">Janeth A. - 402-677-5127</option>
                   <option value="Magda S. - 531-250-7089">Magda S. - 531-250-7089</option>
                   <option value="Malek Z. - 531-250-7095">Malek Z. - 531-250-7095</option>
                   <option value="Mary H. - 531-444-7182">Mary H. - 531-444-7182</option>
