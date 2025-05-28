@@ -139,9 +139,10 @@ export function ScheduleView({ date, transports, role, onDeleteTransport, onEdit
         <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg">
           <FaInfoCircle className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-muted-foreground text-lg font-medium">No transports scheduled for today.</p>
-          <p className="text-muted-foreground">If this is a mistake, please contact the administrator.</p>
-          {role === 'admin' && (
-            <p className="text-muted-foreground text-sm mt-1">Click on "Schedule Transport" to add a new transport</p>
+          {role === 'admin' ? (
+            <p className="text-muted-foreground text-sm mt-1">Click on "Add Transport Schedule" to add a new transport</p>
+          ) : (
+            <p className="text-muted-foreground">If this is a mistake, please contact the administrator.</p>
           )}
         </div>
       )}

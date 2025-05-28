@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import Cookies from 'js-cookie';
 
 interface DashboardHeaderProps {
   date: Date;
@@ -35,7 +36,6 @@ export function DashboardHeader({
   
   // Handle click on announcements button
   const handleAnnouncementsClick = () => {
-    // Navigate to announcements page
     router.push('/announcements');
   };
 
@@ -43,12 +43,19 @@ export function DashboardHeader({
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast.success('Signed out successfully');
-      router.push('/');
+      toast.success('Signed out of admin');
+      router.push('/'); // Stay on schedule page since site password is still valid
     } catch (error) {
       toast.error('Failed to sign out');
       console.error('Sign out error:', error);
     }
+  };
+
+  const handleSiteLogout = () => {
+    Cookies.remove('site_authenticated');
+    signOut(); // Also sign out of admin when exiting site
+    toast.success('Logged out of site');
+    router.push('/auth');
   };
 
   return (
@@ -74,7 +81,16 @@ export function DashboardHeader({
           onSelect={onDateSelect}
         />
         
-        {/* Simple Announcements button without notification */}
+        {user && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="bg-white/10 hover:bg-white/20 text-white" 
+            onClick={() => router.push('/request')}
+          >
+            Request Transport
+          </Button>
+        )}
         <Button 
           variant="outline" 
           size="sm" 
@@ -101,7 +117,11 @@ export function DashboardHeader({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleSignOut}>
                 <FaSignOutAlt className="mr-2 h-4 w-4" />
-                Sign out
+                Sign out of Admin
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSiteLogout}>
+                <FaSignOutAlt className="mr-2 h-4 w-4" />
+                Exit Site
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

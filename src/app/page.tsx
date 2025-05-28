@@ -131,8 +131,8 @@ export default function Home() {
             }}
           />
         ) : (
-          isAdmin && (
             <div className="flex justify-end">
+            {isAdmin && (
               <Button 
                 onClick={() => setShowAddForm(true)}
                 className="bg-secondary hover:bg-secondary-hover text-secondary-foreground"
@@ -140,8 +140,8 @@ export default function Home() {
                 <FaPlus className="mr-2 h-4 w-4" />
                 Add Transport Schedule
               </Button>
+            )}
             </div>
-          )
         )}
       </div>
 
