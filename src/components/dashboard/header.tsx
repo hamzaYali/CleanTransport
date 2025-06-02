@@ -80,17 +80,6 @@ export function DashboardHeader({
           date={date}
           onSelect={onDateSelect}
         />
-        
-        {user && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="bg-white/10 hover:bg-white/20 text-white" 
-            onClick={() => router.push('/request')}
-          >
-            Request Transport
-          </Button>
-        )}
         <Button 
           variant="outline" 
           size="sm" 
@@ -99,6 +88,15 @@ export function DashboardHeader({
         >
           <FaBullhorn className="mr-2 h-5 w-5" />
           Announcements
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-white/10 hover:bg-white/20 text-white"
+          onClick={() => window.open('https://forms.office.com/Pages/ResponsePage.aspx?id=bYdLbkfZPUOYDCNz1yij-T-U7_DMDzBMvlEMDtKlwEtUNTJGMFlGVzZFSU1GQjI3NldVNzUyRFhRWi4u', '_blank')}
+        >
+          Request Transport
         </Button>
         
         {user ? (
